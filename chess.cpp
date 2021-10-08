@@ -11,8 +11,10 @@ class ChessGame : public olc::PixelGameEngine {
  private:
   std::unique_ptr<olc::Sprite> spritePieces;
   std::unique_ptr<olc::Decal> decalPieces;
-  olc::vi2d vGridSize = {64, 64};
+  olc::vi2d vGridSize = {80, 80};
   olc::vi2d vPieceSize = {320, 320};
+
+  int board[8][8] 
 
  public:
   bool OnUserCreate() override {
@@ -45,10 +47,13 @@ class ChessGame : public olc::PixelGameEngine {
       }
     }
 
-    for (int i = 0; i < 6; i++) {
-      for (int j = 0; j < 2; j++) {
+    for (int i = 0; i < 8; i++) {
+      for (int j = 0; j < 8; j++) {
+
+        int p = (j * 8 + i) % 12 + 1;
+
         DrawPartialDecal(vOffset + olc::vi2d(i, j) * vGridSize, decalPieces.get(),
-                         olc::vi2d(i, j) * vPieceSize, vPieceSize, vScale);
+                         olc::vi2d((p - 1) % 6, p > 6 ? 1 : 0) * vPieceSize, vPieceSize, vScale);
       }
     }
 
