@@ -5,6 +5,7 @@ const int windowWidth = 1024;
 const int windowHeight = 768;
 
 enum Pieces {
+  NONE = 0,
   WHITE_KING = 1,
   WHITE_QUEEN,
   WHITE_BISHOP,
@@ -19,6 +20,15 @@ enum Pieces {
   BLACK_PAWN,
 };
 
+bool isKing(Pieces p) { return p == WHITE_KING || p == BLACK_KING; }
+bool isQueen(Pieces p) { return p == WHITE_QUEEN || p == BLACK_QUEEN; }
+bool isBishop(Pieces p) { return p == WHITE_BISHOP || p == BLACK_BISHOP; }
+bool isKnight(Pieces p) { return p == WHITE_KNIGHT || p == BLACK_KNIGHT; }
+bool isRook(Pieces p) { return p == WHITE_ROOK || p == BLACK_ROOK; }
+bool isPawn(Pieces p) { return p == WHITE_PAWN || p == BLACK_PAWN; }
+bool isWhite(Pieces p) { return p != NONE && p < BLACK_KING; }
+bool isBlack(Pieces p) { return p > WHITE_PAWN; }
+
 class ChessGame : public olc::PixelGameEngine {
  public:
   ChessGame() { sAppName = "Chess"; }
@@ -29,22 +39,26 @@ class ChessGame : public olc::PixelGameEngine {
   olc::vi2d vGridSize = {80, 80};
   olc::vi2d vPieceSize = {320, 320};
 
-  int board[8][8] = {
-      {BLACK_ROOK, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_ROOK},
-      {BLACK_KNIGHT, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_KNIGHT},
-      {BLACK_BISHOP, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_BISHOP},
-      {BLACK_QUEEN, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_QUEEN},
-      {BLACK_KING, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_KING},
-      {BLACK_BISHOP, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_BISHOP},
-      {BLACK_KNIGHT, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_KNIGHT},
-      {BLACK_ROOK, BLACK_PAWN, 0, 0, 0, 0, WHITE_PAWN, WHITE_ROOK},
+  Pieces board[8][8] = {
+      {BLACK_ROOK, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN, WHITE_ROOK},
+      {BLACK_KNIGHT, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN,
+       WHITE_KNIGHT},
+      {BLACK_BISHOP, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN,
+       WHITE_BISHOP},
+      {BLACK_QUEEN, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN,
+       WHITE_QUEEN},
+      {BLACK_KING, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN, WHITE_KING},
+      {BLACK_BISHOP, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN,
+       WHITE_BISHOP},
+      {BLACK_KNIGHT, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN,
+       WHITE_KNIGHT},
+      {BLACK_ROOK, BLACK_PAWN, NONE, NONE, NONE, NONE, WHITE_PAWN, WHITE_ROOK},
   };
 
   int space[8][8];
 
  public:
   bool OnUserCreate() override {
-    
     spritePieces = std::make_unique<olc::Sprite>("./pieces.png");
     decalPieces = std::make_unique<olc::Decal>(spritePieces.get());
 
@@ -75,158 +89,75 @@ class ChessGame : public olc::PixelGameEngine {
       }
     }
 
-    int m;
+    Pieces piece;
     if (u > -1 && v > -1) {
-      m = board[u][v];
+      piece = board[u][v];
 
       space[u][v] = 5;
 
-      if (m == BLACK_PAWN && v < 7) {
+      if (piece == BLACK_PAWN && v < 7) {
         if (board[u][v + 1] == 0) {
           space[u][v + 1] = 2;
           if (v == 1 && board[u][v + 2] == 0) space[u][v + 2] = 2;
         }
-        if (board[u + 1][v + 1] > 0 && board[u + 1][v + 1] < BLACK_KING) {
+        if (isWhite(board[u + 1][v + 1])) {
           space[u + 1][v + 1] = 2;
         }
-        if (board[u - 1][v + 1] > 0 && board[u - 1][v + 1] < BLACK_KING) {
+        if (isWhite(board[u - 1][v + 1])) {
           space[u - 1][v + 1] = 2;
         }
       }
 
-      if (m == WHITE_PAWN && v > 0) {
+      if (piece == WHITE_PAWN && v > 0) {
         if (board[u][v - 1] == 0) {
           space[u][v - 1] = 2;
           if (v == 6 && board[u][v - 2] == 0) space[u][v - 2] = 2;
         }
-        if (board[u + 1][v + 1] > WHITE_PAWN) {
+        if (isBlack(board[u + 1][v + 1])) {
           space[u + 1][v + 1] = 2;
         }
-        if (board[u - 1][v + 1] > WHITE_PAWN) {
+        if (isBlack(board[u - 1][v + 1])) {
           space[u - 1][v + 1] = 2;
         }
       }
 
-      if (m == WHITE_KING || m == WHITE_QUEEN || m == WHITE_ROOK ||
-          m == BLACK_KING || m == BLACK_QUEEN || m == BLACK_ROOK) {
-        for (int north = 1; north < 8; north++) {
-          if (v - north < 0) break;
-          if (board[u][v - north] > 0) {
-            if (m > WHITE_PAWN && board[u][v - north] < BLACK_KING ||
-                m < BLACK_KING && board[u][v - north] > WHITE_PAWN)
-              space[u][v - north] = 1;
-            break;
-          }
-          space[u][v - north] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
-        }
+      olc::vi2d deltas[4] = {
+          olc::vi2d(1, 0),  olc::vi2d(1, 1),  olc::vi2d(0, 1),
+          olc::vi2d(-1, 1), olc::vi2d(-1, 0), olc::vi2d(-1, -1),
+          olc::vi2d(0, -1), olc::vi2d(1, -1),
+      };
 
-        for (int south = 1; south < 8; south++) {
-          if (v + south > 7) break;
-          if (board[u][v + south] > 0) {
-            if (m > WHITE_PAWN && board[u][v + south] < BLACK_KING ||
-                m < BLACK_KING && board[u][v + south] > WHITE_PAWN)
-              space[u][v + south] = 1;
-            break;
+      if (!(isPawn(piece) || isKnight(piece))) {
+        for (int direction = 0; direction < 8; direction++) {
+          if (direction % 2 == 0 && isRook(piece)) continue;
+          if (direction % 2 != 0 && isBishop(piece)) continue;
+          for (int steps = 1; steps <= isKing(piece) ? 1 : 7; steps++) {
+            int x = u + deltas[direction].x * steps;
+            int y = v + deltas[direction].y * steps;
+            if (x < 0 || x > 7 || y < 0 || y > 7) break;
+            if (board[x][y] > 0) {
+              if (isBlack(piece) && isWhite(board[x][y]) ||
+                  isWhite(piece) && isBlack(board[x][y]))
+                space[x][y] = 1;
+              break;
+            }
+            space[x][y] = 2;
           }
-          space[u][v + south] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
-        }
-
-        for (int east = 1; east < 8; east++) {
-          if (u + east > 7) break;
-          if (board[u + east][v] > 0) {
-            if (m > WHITE_PAWN && board[u + east][v] < BLACK_KING ||
-                m < BLACK_KING && board[u + east][v] > WHITE_PAWN)
-              space[u + east][v] = 1;
-            break;
-          }
-          space[u + east][v] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
-        }
-
-        for (int west = 1; west < 8; west++) {
-          if (u - west < 0) break;
-          if (board[u - west][v] > 0) {
-            if (m > WHITE_PAWN && board[u - west][v] < BLACK_KING ||
-                m < BLACK_KING && board[u - west][v] > WHITE_PAWN)
-              space[u - west][v] = 1;
-            break;
-          }
-          space[u - west][v] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
         }
       }
 
-      if (m == WHITE_KING || m == WHITE_QUEEN || m == WHITE_BISHOP ||
-          m == BLACK_KING || m == BLACK_QUEEN || m == BLACK_BISHOP) {
-        for (int northEast = 1; northEast < 8; northEast++) {
-          if (u + northEast > 7 || v - northEast < 0) break;
-          if (board[u + northEast][v - northEast] > 0) {
-            if (m > WHITE_PAWN &&
-                    board[u + northEast][v - northEast] < BLACK_KING ||
-                m < BLACK_KING &&
-                    board[u + northEast][v - northEast] > WHITE_PAWN)
-              space[u + northEast][v - northEast] = 1;
-            break;
-          }
-          space[u + northEast][v - northEast] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
-        }
-
-        for (int northWest = 1; northWest < 8; northWest++) {
-          if (u - northWest < 0 || v - northWest < 0) break;
-          if (board[u - northWest][v - northWest] > 0) {
-            if (m > WHITE_PAWN &&
-                    board[u - northWest][v - northWest] < BLACK_KING ||
-                m < BLACK_KING &&
-                    board[u - northWest][v - northWest] > WHITE_PAWN)
-              space[u - northWest][v - northWest] = 1;
-            break;
-          }
-          space[u - northWest][v - northWest] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
-        }
-
-        for (int southWest = 1; southWest < 8; southWest++) {
-          if (u - southWest < 0 || v + southWest > 7) break;
-          if (board[u - southWest][v + southWest] > 0) {
-            if (m > WHITE_PAWN &&
-                    board[u - southWest][v + southWest] < BLACK_KING ||
-                m < BLACK_KING &&
-                    board[u - southWest][v + southWest] > WHITE_PAWN)
-              space[u - southWest][v + southWest] = 1;
-            break;
-          }
-          space[u - southWest][v + southWest] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
-        }
-
-        for (int southEast = 1; southEast < 8; southEast++) {
-          if (u + southEast > 7 || v + southEast > 7) break;
-          if (board[u + southEast][v + southEast] > 0) {
-            if (m > WHITE_PAWN &&
-                    board[u + southEast][v + southEast] < BLACK_KING ||
-                m < BLACK_KING &&
-                    board[u + southEast][v + southEast] > WHITE_PAWN)
-              space[u + southEast][v + southEast] = 1;
-            break;
-          }
-          space[u + southEast][v + southEast] = 2;
-          if (m == WHITE_KING || m == BLACK_KING) break;
-        }
-      }
-
-      if (m == 4 || m == 10) {
+      if (isKnight(piece)) {
         for (int i = -2; i < 3; i++) {
           for (int j = -2; j < 3; j++) {
             if (i == 0 || j == 0 || abs(i) == abs(j)) continue;
-            if (u + i < 0 || u + i > 7 || v + j < 0 || v + j > 7) continue;
-            if (board[u + i][v + j] == 0)
-              space[u + i][v + j] = 2;
-            else if (m > WHITE_PAWN && board[u + i][v + j] < BLACK_KING ||
-                     m < BLACK_KING && board[u + i][v + j] > WHITE_PAWN)
-              space[u + i][v + j] = 1;
+            int x = u + i;
+            int y = v + j;
+            if (x < 0 || x > 7 || y < 0 || y > 7) continue;
+            if (board[x][y] == 0)
+              space[x][y] = 2;
+            else if (isWhite(piece) && isBlack(board[x][y]) ||
+                     isBlack(piece) && isWhite(board[x][y]))
+              space[x][y] = 1;
           }
         }
       }
