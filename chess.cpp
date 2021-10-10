@@ -34,7 +34,10 @@ enum Spaces {
   THREAT,
   MUTUAL,
   XRAY,
-  CONTROL
+  CONTROL,
+  DEFEND,
+  CHECK,
+  EXCHANGE
 };
 
 bool isKing(Pieces p) { return p == WHITE_KING || p == BLACK_KING; }
@@ -56,18 +59,19 @@ class ChessGame : public olc::PixelGameEngine {
   olc::vi2d vGridSize = {80, 80};
   olc::vi2d vPieceSize = {320, 320};
 
-  olc::Pixel shade[10] = {
+  olc::Pixel shade[12] = {
       olc::BLACK,
-      olc::Pixel(63, 63, 63),    // THIS (WHITE)
-      olc::Pixel(-63, 63, -63),  // MOVE (GREEN)
-      olc::Pixel(-63, -63, 63),  // HAZARD (BLUE)
+      olc::Pixel(-63, -63, 0),   // THIS (DARK BLUE)
+      olc::Pixel(-63, 63, -63),  // MOVE (LIME)
+      olc::Pixel(0, -63, 63),    // HAZARD (PURPLE)
       olc::Pixel(63, 63, -63),   // ATTACK (YELLOW)
       olc::Pixel(63, -63, -63),  // THREAT (RED)
       olc::Pixel(63, 0, -63),    // MUTUAL (ORANGE)
-      olc::Pixel(0, -63, -63),   // XRAY (DARK RED)
-      olc::Pixel(63, -63, 63),   // CONTROL (MAGENTA)
-      olc::Pixel(-63, 63, 63),   // DEFEND (CYAN)           // <-------- ADD THIS NEXT!
-
+      olc::Pixel(-63, 63, 63),   // XRAY (CYAN)
+      olc::Pixel(-63, 0, -63),   // CONTROL (GREEN)
+      olc::Pixel(-63, -63, 63),  // DEFEND (BLUE)
+      olc::Pixel(63, -63, 63),   // CHECK (MAGENTA)
+      olc::Pixel(63, 32, 0),     // EXCHANGE (BROWN)
   };
 
   olc::vi2d deltas[8] = {
@@ -119,6 +123,15 @@ class ChessGame : public olc::PixelGameEngine {
     olc::vi2d vOffset = {windowWidth / 2 - vGridSize.x * 4,
                          windowHeight / 2 - vGridSize.y * 4};
 
+    if (GetKey(olc::Key::ESCAPE).bPressed) {
+      for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+          board[i][j] = NONE;
+        }
+      }
+      recalculateSpaces();
+    }
+
     mouse = GetMousePos() - vOffset;
 
     olc::HWButton mouseButton = GetMouse(0);
@@ -128,6 +141,78 @@ class ChessGame : public olc::PixelGameEngine {
         mouse.y < 8 * vGridSize.y) {
       u = mouse.x / vGridSize.x;
       v = mouse.y / vGridSize.y;
+
+      if (GetKey(olc::Key::SPACE).bPressed) {
+        if (turn == WHITE)
+          turn = BLACK;
+        else
+          turn = WHITE;
+      }
+
+      if (GetKey(olc::Key::BACK).bPressed) {
+        board[u][v] = NONE;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::F1).bPressed) {
+        board[u][v] = BLACK_KING;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::F2).bPressed) {
+        board[u][v] = BLACK_QUEEN;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::F3).bPressed) {
+        board[u][v] = BLACK_BISHOP;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::F4).bPressed) {
+        board[u][v] = BLACK_KNIGHT;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::F5).bPressed) {
+        board[u][v] = BLACK_ROOK;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::F6).bPressed) {
+        board[u][v] = BLACK_PAWN;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::K1).bPressed) {
+        board[u][v] = WHITE_KING;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::K2).bPressed) {
+        board[u][v] = WHITE_QUEEN;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::K3).bPressed) {
+        board[u][v] = WHITE_BISHOP;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::K4).bPressed) {
+        board[u][v] = WHITE_KNIGHT;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::K5).bPressed) {
+        board[u][v] = WHITE_ROOK;
+        recalculateSpaces();
+      }
+
+      if (GetKey(olc::Key::K6).bPressed) {
+        board[u][v] = WHITE_PAWN;
+        recalculateSpaces();
+      }
     }
 
     if (mouseButton.bPressed && u >= 0 && v >= 0 && u < 8 && v < 8) {
@@ -144,7 +229,11 @@ class ChessGame : public olc::PixelGameEngine {
       } else if (moveStart.x == u && moveStart.y == v) {
         moveStart = olc::vi2d(-1, -1);
       } else if (moveStart.x != -1 && moveStart.y != -1 &&
-                 space[moveStart.x][moveStart.y][u][v] != INVALID) {
+                 (space[moveStart.x][moveStart.y][u][v] == MOVE ||
+                  space[moveStart.x][moveStart.y][u][v] == ATTACK ||
+                  space[moveStart.x][moveStart.y][u][v] == MUTUAL ||
+                  space[moveStart.x][moveStart.y][u][v] == HAZARD ||
+                  space[moveStart.x][moveStart.y][u][v] == EXCHANGE)) {
         board[u][v] = board[moveStart.x][moveStart.y];
         board[moveStart.x][moveStart.y] = NONE;
         if (turn == WHITE)
@@ -233,12 +322,16 @@ class ChessGame : public olc::PixelGameEngine {
           if (u < 7) {
             if (isWhite(board[u + 1][v + 1]))
               space[u][v][u + 1][v + 1] = ATTACK;
+            else if (isWhite(board[u + 1][v + 1]))
+              space[u][v][u + 1][v + 1] = DEFEND;
             else if (board[u + 1][v + 1] == NONE)
               space[u][v][u + 1][v + 1] = CONTROL;
           }
           if (u > 0) {
             if (isWhite(board[u - 1][v + 1]))
               space[u][v][u - 1][v + 1] = ATTACK;
+            else if (isBlack(board[u - 1][v + 1]))
+              space[u][v][u - 1][v + 1] = DEFEND;
             else if (board[u - 1][v + 1] == NONE)
               space[u][v][u - 1][v + 1] = CONTROL;
           }
@@ -252,12 +345,16 @@ class ChessGame : public olc::PixelGameEngine {
           if (u < 7) {
             if (isBlack(board[u + 1][v - 1]))
               space[u][v][u + 1][v - 1] = ATTACK;
+            else if (isWhite(board[u + 1][v - 1]))
+              space[u][v][u + 1][v - 1] = DEFEND;
             else if (board[u + 1][v - 1] == NONE)
               space[u][v][u + 1][v - 1] = CONTROL;
           }
           if (u > 0) {
             if (isBlack(board[u - 1][v - 1]))
               space[u][v][u - 1][v - 1] = ATTACK;
+            else if (isWhite(board[u - 1][v - 1]))
+              space[u][v][u - 1][v - 1] = DEFEND;
             else if (board[u - 1][v - 1] == NONE)
               space[u][v][u - 1][v - 1] = CONTROL;
           }
@@ -279,6 +376,8 @@ class ChessGame : public olc::PixelGameEngine {
                     break;
                   }
                   space[u][v][x][y] = ATTACK;
+                } else {
+                  if (!xRay && !isKing(board[x][y])) space[u][v][x][y] = DEFEND;
                 }
                 xRay = true;
               }
@@ -313,11 +412,16 @@ class ChessGame : public olc::PixelGameEngine {
             if (u == i && v == j) continue;
 
             if (space[u][v][i][j] == ATTACK) {
-              if (space[i][j][u][v] == ATTACK) {
+              if (isKing(board[i][j])) {
+                space[u][v][i][j] = CHECK;
+              } else if (space[i][j][u][v] == ATTACK) {
                 space[i][j][u][v] = MUTUAL;
                 space[u][v][i][j] = MUTUAL;
               } else {
                 space[i][j][u][v] = THREAT;
+              }
+              if (space[i][j][u][v] == DEFEND) {
+                space[u][v][i][j] = EXCHANGE;
               }
             }
 
