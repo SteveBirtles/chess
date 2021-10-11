@@ -119,7 +119,7 @@ class ChessGame : public olc::PixelGameEngine {
 
   Turns turn = WHITE;
   olc::vi2d mouse;
-  bool useTurns = false;
+  bool useTurns = true;
 
   bool calculateAttacks = true;
   bool calculateDefences = true;
@@ -156,6 +156,7 @@ class ChessGame : public olc::PixelGameEngine {
         }
       }
       moveStart = olc::vi2d(-1, -1);
+      useTurns = false;
       recalculateSpaces();
     }
 
@@ -296,9 +297,7 @@ class ChessGame : public olc::PixelGameEngine {
     if (mouseButton.bPressed && u >= 0 && v >= 0 && u < 8 && v < 8) {
       if (moveStart.x == -1 && moveStart.y == -1) {
         if (board[u][v] != NONE) {
-          Pieces piece;
-          piece = board[u][v];
-
+          Pieces piece = board[u][v];
           if (!useTurns || (isWhite(piece) && turn == WHITE ||
                             isBlack(piece) && turn == BLACK)) {
             moveStart = olc::vi2d(u, v);
@@ -306,26 +305,24 @@ class ChessGame : public olc::PixelGameEngine {
         }
       } else if (moveStart.x == u && moveStart.y == v) {
         moveStart = olc::vi2d(-1, -1);
-      } else if (moveStart.x != -1 && moveStart.y != -1 &&
-                 (space[moveStart.x][moveStart.y][u][v] == SAFE_MOVE ||
-                  space[moveStart.x][moveStart.y][u][v] == UNDEFENDED_ATTACK ||
-                  space[moveStart.x][moveStart.y][u][v] ==
-                      DEFENDED_MUTUAL_THREAT ||
-                  space[moveStart.x][moveStart.y][u][v] ==
-                      UNDEFENDED_MUTUAL_THREAT ||
-                  space[moveStart.x][moveStart.y][u][v] == HAZARDOUS_MOVE ||
-                  space[moveStart.x][moveStart.y][u][v] == DEFENDED_ATTACK)) {
-        board[u][v] = board[moveStart.x][moveStart.y];
-        board[moveStart.x][moveStart.y] = NONE;
-        if (useTurns) {
-          if (turn == WHITE)
-            turn = BLACK;
-          else
-            turn = WHITE;
+      } else if (moveStart.x != -1 && moveStart.y != -1) {
+        Spaces s = space[moveStart.x][moveStart.y][u][v];
+        Pieces piece = board[moveStart.x][moveStart.y];
+        if (s == SAFE_MOVE || s == UNDEFENDED_ATTACK ||
+            s == UNDEFENDED_MUTUAL_THREAT ||
+            !isKing(piece) && (s == DEFENDED_MUTUAL_THREAT ||
+                               s == HAZARDOUS_MOVE || s == DEFENDED_ATTACK)) {
+          board[u][v] = board[moveStart.x][moveStart.y];
+          board[moveStart.x][moveStart.y] = NONE;
+          if (useTurns) {
+            if (turn == WHITE)
+              turn = BLACK;
+            else
+              turn = WHITE;
+          }
+          recalculateSpaces();
+          moveStart = olc::vi2d(-1, -1);
         }
-        recalculateSpaces();
-
-        moveStart = olc::vi2d(-1, -1);
       }
     }
 
@@ -347,7 +344,28 @@ class ChessGame : public olc::PixelGameEngine {
         FillRectDecal(vOffset + olc::vf2d(i, j) * vGridSize, vGridSize,
                       squareColour);
 
-        if (startX != -1 && startY != -1) {
+        if (startX == -1 && startY == -1 && mouse.x >= 0 && mouse.y >= 0 &&
+            mouse.x < 8 * vGridSize.x && mouse.y < 8 * vGridSize.y) {
+          if (mouseX != -1 && mouseY != -1) {
+            Spaces a = space[mouseX][mouseY][i][j];
+            if (a != INVALID) {
+              Pieces piece = board[mouseX][mouseY];
+              if (!useTurns || (isWhite(piece) && turn == WHITE ||
+                                isBlack(piece) && turn == BLACK)) {
+                olc::Pixel highlightColour =
+                    (i + j) % 2 == 0
+                        ? olc::Pixel(192 + shade[a].r, 192 + shade[a].g,
+                                     192 + shade[a].b)
+                        : olc::Pixel(96 + shade[a].r, 96 + shade[a].g,
+                                     96 + shade[a].b);
+
+                FillRectDecal(vOffset + olc::vf2d(i, j) * vGridSize, vGridSize,
+                              highlightColour);
+              }
+            }
+          }
+
+        } else if (startX != -1 && startY != -1) {
           Spaces a = space[startX][startY][i][j];
           if (a != INVALID) {
             olc::Pixel borderColour =
@@ -368,24 +386,6 @@ class ChessGame : public olc::PixelGameEngine {
             if (mouseX == i && mouseY == j) {
               DrawStringPropDecal(vOffset + olc::vi2d(0, -10), spaceWord[a],
                                   squareColour, olc::vf2d(1, 1));
-            }
-          }
-        }
-
-        if (startX == -1 && startY == -1 && mouse.x >= 0 && mouse.y >= 0 &&
-            mouse.x < 8 * vGridSize.x && mouse.y < 8 * vGridSize.y) {
-          if (mouseX != -1 && mouseY != -1) {
-            Spaces a = space[mouseX][mouseY][i][j];
-            if (a != INVALID) {
-              olc::Pixel highlightColour =
-                  (i + j) % 2 == 0
-                      ? olc::Pixel(192 + shade[a].r, 192 + shade[a].g,
-                                   192 + shade[a].b)
-                      : olc::Pixel(96 + shade[a].r, 96 + shade[a].g,
-                                   96 + shade[a].b);
-
-              FillRectDecal(vOffset + olc::vf2d(i, j) * vGridSize, vGridSize,
-                            highlightColour);
             }
           }
         }
